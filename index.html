@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HydroRemind - Hourly Timer & AI Hydration Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 50%, #bae6fd 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .timer-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.35s linear;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        @keyframes timer-glow {
+            0%, 100% { filter: drop-shadow(0 0 15px rgba(14, 165, 233, 0.3)); }
+            50% { filter: drop-shadow(0 0 25px rgba(14, 165, 233, 0.6)); }
+        }
+
+        .active-timer-glow {
+            animation: timer-glow 3s infinite ease-in-out;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(241, 245, 249, 0.5);
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #93c5fd;
+            border-radius: 10px;
+        }
+
+        .tab-active {
+            background-color: #0ea5e9;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased flex flex-col items-center justify-start p-3 sm:p-6 pb-12">
+
+    <header class="w-full max-w-6xl bg-white/80 backdrop-blur-md rounded-3xl p-4 sm:p-5 shadow-lg shadow-sky-100/60 mb-6 border border-white/60">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+            
+            <!-- App Logo & Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-gradient-to-tr from-sky-500 to-blue-600 rounded-2xl flex items-center justify-center text-white shadow-md shadow-sky-300">
+                    <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
+                        HydroRemind <span class="text-sky-500 font-bold text-xs bg-sky-100 px-2.5 py-0.5 rounded-full">Gemini 3.0 AI</span>
+                    </h1>
+                    <p class="text-xs text-slate-500 font-medium">Hourly Timer • Vision Drink Scanner • Gemini Coach & Chat</p>
+                </div>
+            </div>
+
+            <!-- Header Audio Controls & Streak -->
+            <div class="flex items-center gap-2">
+                <div class="bg-sky-50 text-sky-700 px-3 py-1.5 rounded-xl border border-sky-100 text-xs font-semibold flex items-center gap-1.5">
+                    <span>🔥 Streak:</span>
+                    <span id="streakCount" class="font-extrabold text-sky-600">1 Day</span>
+                </div>
+
+                <button id="soundToggleBtn" class="px-3.5 py-2 bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-semibold rounded-xl border border-sky-100 transition-colors flex items-center gap-2">
+                    <svg id="soundIcon" class="w-4 h-4 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                    </svg>
+                    <span id="soundLabel">Sound On</span>
+                </button>
+            </div>
+
+        </div>
+    </header>
+
+    <main class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- LEFT COLUMN: Central Focus - Hydration Timer & Daily Goal Tracker (6 Cols) -->
+        <section class="lg:col-span-6 space-y-6">
+            
+            <!-- Main Timer Card -->
+            <div class="bg-white rounded-3xl shadow-xl shadow-sky-100/50 p-6 sm:p-8 border border-sky-100/80 relative overflow-hidden flex flex-col justify-between">
+                
+                <!-- Card Header -->
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                        <h2 class="text-lg font-bold text-slate-800">1-Hour Hydration Timer</h2>
+                    </div>
+                    <span id="timerStatusBadge" class="text-xs font-semibold text-sky-600 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-100">
+                        Ready
+                    </span>
+                </div>
+
+                <!-- Circular Visualizer -->
+                <div class="flex flex-col items-center justify-center my-2">
+                    <div id="timerRingContainer" class="relative w-60 h-60 sm:w-64 sm:h-64 flex items-center justify-center rounded-full transition-all">
+                        <svg class="w-full h-full" viewBox="0 0 120 120">
+                            <!-- Background Circle -->
+                            <circle class="text-slate-100" stroke-width="7" stroke="currentColor" fill="transparent" r="52" cx="60" cy="60"/>
+                            <!-- Animated Ring -->
+                            <circle id="timerProgressCircle" class="text-sky-500 progress-ring-circle" stroke-width="7" stroke-dasharray="326.72" stroke-dashoffset="0" stroke-linecap="round" stroke="currentColor" fill="transparent" r="52" cx="60" cy="60"/>
+                        </svg>
+                        
+                        <!-- Digital Display -->
+                        <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                            <span id="timerDisplay" class="timer-font text-5xl sm:text-6xl font-extrabold text-slate-800 tracking-tight">60:00</span>
+                            <span id="timerSubtext" class="text-xs font-medium text-slate-400 mt-2">Next drink in 1 hour</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Duration Interval Presets -->
+                <div class="mt-2 mb-6">
+                    <label class="block text-xs font-semibold text-slate-500 text-center mb-2">Select Reminder Interval</label>
+                    <div class="grid grid-cols-4 gap-2">
+                        <button class="preset-btn bg-slate-100 hover:bg-sky-50 hover:text-sky-600 text-slate-600 text-xs font-bold py-2.5 rounded-xl transition-all" data-minutes="15">15m</button>
+                        <button class="preset-btn bg-slate-100 hover:bg-sky-50 hover:text-sky-600 text-slate-600 text-xs font-bold py-2.5 rounded-xl transition-all" data-minutes="30">30m</button>
+                        <button class="preset-btn bg-sky-500 text-white text-xs font-bold py-2.5 rounded-xl transition-all shadow-md shadow-sky-200" data-minutes="60">1 Hour</button>
+                        <button class="preset-btn bg-slate-100 hover:bg-sky-50 hover:text-sky-600 text-slate-600 text-xs font-bold py-2.5 rounded-xl transition-all" data-minutes="90">90m</button>
+                    </div>
+                </div>
+
+                <!-- Primary Timer Controls -->
+                <div class="grid grid-cols-2 gap-3 mb-2">
+                    <button id="startBtn" class="bg-sky-500 hover:bg-sky-600 active:scale-95 text-white font-bold py-4 px-4 rounded-2xl transition-all shadow-lg shadow-sky-200 text-sm flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        Start Timer
+                    </button>
+                    <button id="resetBtn" class="bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-bold py-4 px-4 rounded-2xl transition-all text-sm flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        Reset
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- Daily Goal Tracker Bar -->
+            <div class="bg-white rounded-3xl shadow-xl shadow-sky-100/50 p-6 border border-sky-100/80">
+                <div class="flex justify-between items-center text-xs font-semibold mb-2">
+                    <span class="text-slate-700 flex items-center gap-1.5 font-bold">
+                        <svg class="w-4 h-4 text-sky-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+                        Daily Water Intake Progress
+                    </span>
+                    <span id="dailyProgressText" class="text-sky-600 font-bold">0 / 2000 ml (0 glasses)</span>
+                </div>
+                
+                <div class="w-full h-4 bg-slate-100 rounded-full overflow-hidden p-0.5 mb-3">
+                    <div id="dailyProgressBar" class="h-full bg-gradient-to-r from-sky-400 to-blue-500 rounded-full transition-all duration-500 w-0"></div>
+                </div>
+
+                <div class="flex flex-wrap justify-between items-center gap-2">
+                    <div class="flex gap-2">
+                        <button id="addGlassBtn" class="text-xs bg-sky-500 hover:bg-sky-600 active:scale-95 text-white font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1">
+                            +1 Glass (250ml)
+                        </button>
+                        <button id="addCustomBtn" class="text-xs bg-sky-50 hover:bg-sky-100 text-sky-700 font-bold px-3 py-2 rounded-xl transition-all border border-sky-100">
+                            +Custom
+                        </button>
+                    </div>
+                    <button id="resetDailyBtn" class="text-[11px] text-slate-400 hover:text-rose-500 font-medium">
+                        Reset Intake
+                    </button>
+                </div>
+            </div>
+
+            <!-- AI Water Mascot Avatar Card -->
+            <div class="bg-gradient-to-br from-sky-500 to-blue-600 rounded-3xl p-5 text-white shadow-lg shadow-sky-200 flex items-center justify-between gap-4">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">AI Mascot</span>
+                        <span id="mascotLevelText" class="text-xs font-bold text-sky-100">Level 1 Hydro Drop</span>
+                    </div>
+                    <p id="mascotSpeech" class="text-xs text-sky-50 font-medium leading-relaxed italic">
+                        "Stay hydrated! Every sip brings us closer to our goal!"
+                    </p>
+                    <button id="genMascotBtn" class="mt-3 text-[11px] bg-white/20 hover:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-lg backdrop-blur-sm transition-all flex items-center gap-1.5">
+                        ✨ Change AI Avatar Style
+                    </button>
+                </div>
+
+                <div class="w-20 h-20 sm:w-24 sm:h-24 bg-white/10 rounded-2xl border border-white/20 p-1 flex items-center justify-center shrink-0 overflow-hidden relative">
+                    <img id="mascotImage" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M50 15 C30 55 20 65 20 75 A30 30 0 0 0 80 75 C80 65 70 55 50 15 Z' fill='%23ffffff'/><circle cx='40' cy='65' r='4' fill='%230284c7'/><circle cx='60' cy='65' r='4' fill='%230284c7'/><path d='M42 75 Q50 82 58 75' stroke='%230284c7' stroke-width='3' fill='none' stroke-linecap='round'/></svg>" alt="Water Mascot" class="w-full h-full object-contain rounded-xl">
+                    <div id="mascotSpinner" class="hidden absolute inset-0 bg-sky-600/80 backdrop-blur-xs flex items-center justify-center text-white text-[10px] font-bold">
+                        Generating...
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- RIGHT COLUMN: Gemini AI Features Hub (6 Cols) -->
+        <aside class="lg:col-span-6 space-y-6">
+
+            <!-- AI Navigation Navigation Bar -->
+            <div class="bg-white rounded-3xl shadow-xl shadow-sky-100/50 p-2 border border-sky-100/80 flex flex-wrap gap-1">
+                <button id="tabScanBtn" class="tab-btn tab-active flex-1 py-2 px-1.5 rounded-2xl text-[11px] sm:text-xs font-bold transition-all text-center">
+                    📸 Drink Scanner
+                </button>
+                <button id="tabPlanBtn" class="tab-btn text-slate-500 hover:text-sky-600 flex-1 py-2 px-1.5 rounded-2xl text-[11px] sm:text-xs font-bold transition-all text-center">
+                    📅 AI Schedule
+                </button>
+                <button id="tabChatBtn" class="tab-btn text-slate-500 hover:text-sky-600 flex-1 py-2 px-1.5 rounded-2xl text-[11px] sm:text-xs font-bold transition-all text-center">
+                    💬 HydroBot
+                </button>
+                <button id="tabFactBtn" class="tab-btn text-slate-500 hover:text-sky-600 flex-1 py-2 px-1.5 rounded-2xl text-[11px] sm:text-xs font-bold transition-all text-center">
+                    🎙️ Voice Coach
+                </button>
+                <button id="tabGoalBtn" class="tab-btn text-slate-500 hover:text-sky-600 flex-1 py-2 px-1.5 rounded-2xl text-[11px] sm:text-xs font-bold transition-all text-center">
+                    🌐 Climate
+                </button>
+            </div>
+
+            <!-- TAB 1: Gemini Vision Drink Photo Scanner & Analyzer -->
+            <div id="tabScanContent" class="bg-white rounded-3xl shadow-xl shadow-sky-100/50 p-6 border border-sky-100/80 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg">📸</span>
+                        <h3 class="text-sm font-extrabold text-slate-800 uppercase tracking-wider">Gemini Vision Drink Scanner</h3>
+                    </div>
+                    <span class="bg-sky-100 text-sky-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Vision Multimodal</span>
+                </div>
+
+                <p class="text-xs text-slate-500">Upload a photo of your drink or pick a sample to analyze fluid volume, sugar, caffeine, and net hydration:</p>
+
+                <!-- Image Upload / Sample Chooser -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+                    <button class="sample-img-btn bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl p-2 flex flex-col items-center gap-1 text-[11px] font-semibold text-slate-700 transition-all" data-sample="water">
+                        <span class="text-xl">💧</span>
+                        <span>Water Glass</span>
+                    </button>
+                    <button class="sample-img-btn bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl p-2 flex flex-col items-center gap-1 text-[11px] font-semibold text-slate-700 transition-all" data-sample="coffee">
+                        <span class="text-xl">☕</span>
+                        <span>Iced Coffee</span>
+                    </button>
+                    <button class="sample-img-btn bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl p-2 flex flex-col items-center gap-1 text-[11px] font-semibold text-slate-700 transition-all" data-sample="smoothie">
+                        <span class="text-xl">🥤</span>
+                        <span>Green Smoothie</span>
+                    </button>
+                    <button class="sample-img-btn bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl p-2 flex flex-col items-center gap-1 text-[11px] font-semibold text-slate-700 transition-all" data-sample="sports">
+                        <span class="text-xl">⚡</span>
+                        <span>Electrolyte Drink</span>
+                    </button>
+                </div>
+
+                <!-- Custom Photo Upload Button -->
+                <div class="flex items-center justify-between gap-2 bg-slate-50 p-2.5 rounded-xl border border-dashed border-slate-300">
+                    <input type="file" id="imageFileInput" accept="image/*" class="hidden">
+                    <button id="uploadTriggerBtn" class="w-full bg-white hover:bg-slate-100 text-slate-700 font-bold py-2 px-3 rounded-lg text-xs border border-slate-200 transition-all flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        Upload Drink Photo
+                    </button>
+                </div>
+
+                <!-- Preview Area -->
+                <div id="imagePreviewContainer" class="hidden relative rounded-xl overflow-hidden max-h-40 bg-slate-100 border border-slate-200 flex items-center justify-center">
+                    <img id="imagePreview" src="" alt="Drink Preview" class="max-h-40 w-auto object-contain">
+                </div>
+
+                <!-- Text Query Option alongside vision -->
+                <div class="flex gap-2">
+                    <input id="beverageInput" type="text" placeholder="Or type: 1 cup iced latte, 500ml boba tea..." class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                    <button id="analyzeVisionBtn" class="bg-sky-500 hover:bg-sky-600 active:scale-95 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-sm">
+                        Analyze
+                    </button>
+                </div>
+
+                <!-- Analysis Display Card -->
+                <div id="visionResult" class="bg-slate-50 rounded-2xl p-4 border border-slate-100 text-xs text-slate-600 min-h-[90px] flex flex-col justify-center">
+                    <span class="text-slate-400 italic text-center">Select a drink sample or upload an image above!</span>
+                </div>
+
+                <!-- Quick Log Button -->
+                <button id="logDrinkNetBtn" class="hidden w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-1.5">
+                    ➕ Log Net Fluid to Daily Intake
+                </button>
+            </div>
+
+            <!-- TAB 2: Gemini Personal Daily Hydration Plan Generator (Structured JSON) -->
+            <div id="tabPlanContent" class="hidden bg-white rounded-3xl shadow-xl shadow-sky-100/50 p-6 border border-sky-100/80 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg">📅</span>
+                        <h3 class="text-sm font-extrabold text-slate-800 uppercase tracking-wider">AI Hydration Schedule Generator</h3>
+                    </div>
+                    <span class="bg-sky-100 text-sky-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Structured JSON</span>
+                </div>
+
+                <p class="text-xs text-slate-500">Generate a tailored hourly water schedule based on your routine:</p>
+
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Weight (kg)</label>
+                        <input id="planWeightInput" type="number" value="70" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Wake Time</label>
+                        <input id="planWakeInput" type="time" value="07:00" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Primary Goal</label>
+                        <select id="planGoalSelect" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 text-xs text-slate-700">
+                            <option value="energy">⚡ Max Focus & Energy</option>
+                            <option value="fitness">🏋️ Workout Performance</option>
+                            <option value="weightloss">🔥 Weight Management</option>
+                            <option value="skin">✨ Healthy Skin Glow</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Activity Level</label>
+                        <select id="planActivitySelect" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 text-xs text-slate-700">
+                            <option value="sedentary">💻 Mostly Sitting</option>
+                            <option value="moderate">🚶 Active Walking</option>
+                            <option value="intense">🏃 Heavy Workouts</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button id="generatePlanBtn" class="w-full bg-sky-500 hover:bg-sky-600 active:scale-95 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-1.5">
+                    ✨ Generate Custom Gemini Schedule
+                </button>
+
+                <!-- Generated Plan Timeline Display -->
+                <div id="planResultContainer" class="bg-slate-50 rounded-2xl p-4 border border-slate-100 max-h-60 overflow-y-auto custom-scrollbar space-y-2 text-xs">
+                    <span class="text-slate-400 italic text-center block">Fill in your info above and generate your AI schedule!</span>
+                </div>
+            </div>
+
+            <!-- TAB 3: HydroBot Multi-Turn AI Chatbot -->
+            <div id="tabChatContent" class="hidden bg-white rounded-3xl shadow-xl shadow-sky-100/50 p-6 border border-sky-100/80 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg">💬</span>
+                        <h3 class="text-sm font-extrabold text-slate-800 uppercase tracking-wider">HydroBot Assistant</h3>
+                    </div>
+                    <span class="bg-sky-100 text-sky-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Gemini Chat</span>
+                </div>
+
+                <!-- Chat History Box -->
+                <div id="chatHistoryBox" class="bg-slate-50 rounded-2xl p-3 border border-slate-200 h-52 overflow-y-auto custom-scrollbar space-y-3 text-xs">
+                    <div class="flex items-start gap-2">
+                        <div class="w-6 h-6 rounded-full bg-sky-500 text-white flex items-center justify-center font-bold text-[10px] shrink-0">AI</div>
+                        <div class="bg-white border border-slate-200 p-2.5 rounded-2xl text-slate-700 shadow-xs max-w-[85%]">
+                            Hi there! I'm HydroBot, your AI hydration coach. Ask me anything about water intake, electrolytes, fasting, or fitness! 💧
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Prompt Chips -->
+                <div class="flex gap-1.5 overflow-x-auto custom-scrollbar pb-1 text-[11px]">
+                    <button class="chat-chip bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-full px-2.5 py-1 shrink-0 font-medium transition-all">How to avoid dehydration while working?</button>
+                    <button class="chat-chip bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-full px-2.5 py-1 shrink-0 font-medium transition-all">Do electrolytes matter?</button>
+                    <button class="chat-chip bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-full px-2.5 py-1 shrink-0 font-medium transition-all">Is warm water better than ice water?</button>
+                </div>
+
+                <!-- Chat Input Row -->
+                <div class="flex gap-2">
+                    <input id="chatInput" type="text" placeholder="Type your hydration question..." class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                    <button id="sendChatBtn" class="bg-sky-500 hover:bg-sky-600 active:scale-95 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-sm">
+                        Send
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 4: Gemini Voice Coach & Audio Fact Card -->
+            <div id="tabFactContent" class="hidden bg-white rounded-3xl shadow-xl shadow-sky-100/50 p-6 border border-sky-100/80 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg">🎙️</span>
+                        <h3 class="text-sm font-extrabold text-slate-800 uppercase tracking-wider">AI Voice Coach & Insight</h3>
+                    </div>
+                    <span class="bg-sky-100 text-sky-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Gemini 2.5 TTS</span>
+                </div>
+
+                <!-- Voice Coach Selector -->
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Coach Persona</label>
+                    <select id="voicePersonaSelect" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                        <option value="Aoede:Zen Master">🧘 Zen Master (Aoede - Calm & Peaceful)</option>
+                        <option value="Fenrir:Hyped Gym Bro">🏋️ Hyped Gym Bro (Fenrir - High Energy)</option>
+                        <option value="Puck:Snarky Bot">🤖 Snarky Water Bot (Puck - Sarcastic & Witty)</option>
+                        <option value="Charon:Dr Hydro">🩺 Dr. Hydro (Charon - Medical Expert)</option>
+                    </select>
+                </div>
+
+                <!-- Fact Text Display -->
+                <div class="bg-sky-50/70 rounded-2xl p-4 border border-sky-100">
+                    <p id="factText" class="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium min-h-[4.5rem]">
+                        Fetching your personalized hydration tip...
+                    </p>
+                </div>
+
+                <!-- Action Buttons: Audio Read & New Fact -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="speakFactBtn" class="bg-sky-500 hover:bg-sky-600 active:scale-95 text-white text-xs font-bold py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+                        Listen (TTS)
+                    </button>
+                    <button id="refreshFactBtn" class="bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-bold py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5">
+                        <svg id="refreshIcon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        New Insight
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 5: Google Search Grounded Climate Goal Calculator -->
+            <div id="tabGoalContent" class="hidden bg-white rounded-3xl shadow-xl shadow-sky-100/50 p-6 border border-sky-100/80 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg">🌐</span>
+                        <h3 class="text-sm font-extrabold text-slate-800 uppercase tracking-wider">Search Climate Goal</h3>
+                    </div>
+                    <span class="bg-sky-100 text-sky-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Google Search</span>
+                </div>
+
+                <p class="text-xs text-slate-500">Calculate custom water intake based on your city's weather & activity level:</p>
+
+                <div class="space-y-2">
+                    <input id="cityInput" type="text" placeholder="Your City or Region (e.g. Phoenix, Tokyo)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                    <select id="activitySelect" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                        <option value="Desk Work / Light">💻 Desk Work / Light Activity</option>
+                        <option value="Moderate Exercise 30-60m">🏃 Moderate Exercise (30-60 min)</option>
+                        <option value="Intense Workout / Outdoor Heavy">🔥 Heavy Outdoor Activity / Sports</option>
+                    </select>
+                    <button id="calcGoalBtn" class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-1.5">
+                        🔍 Grounded Search Calculation
+                    </button>
+                </div>
+
+                <div id="climateGoalResult" class="bg-slate-50 rounded-2xl p-3.5 border border-slate-100 text-xs text-slate-600 min-h-[60px] flex items-center">
+                    <span class="text-slate-400 italic">Enter your city to fetch weather-adjusted targets.</span>
+                </div>
+            </div>
+
+        </aside>
+
+    </main>
+
+    <!-- Hourly Alert Modal Window -->
+    <div id="notificationModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" id="modalBackdrop"></div>
+        
+        <!-- Modal Content Card -->
+        <div class="relative bg-white rounded-3xl shadow-2xl p-6 sm:p-8 w-full max-w-sm text-center transform scale-95 opacity-0 transition-all duration-300 border border-sky-100" id="modalContent">
+            
+            <div class="mx-auto w-16 h-16 bg-gradient-to-tr from-sky-400 to-blue-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-sky-200">
+                <svg class="w-8 h-8 text-white animate-bounce" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+                </svg>
+            </div>
+            
+            <h3 class="text-xl font-extrabold text-slate-800 mb-1">Time to Hydrate! 💧</h3>
+            <p class="text-xs text-slate-500 mb-3">Your hourly timer is up!</p>
+            
+            <div class="bg-sky-50 rounded-2xl p-3.5 mb-4 border border-sky-100 text-xs text-sky-900 font-medium italic min-h-[50px] flex items-center justify-center" id="modalMotivationText">
+                "Drink 1 glass of water right now to keep your focus high and body energized!"
+            </div>
+
+            <!-- Voice Motivation Button inside Modal -->
+            <button id="modalVoiceBtn" class="mb-4 w-full bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold py-2 px-3 rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5">
+                🎙️ Play AI Voice Coach Motivation
+            </button>
+            
+            <button id="confirmDrinkBtn" class="w-full bg-sky-500 hover:bg-sky-600 active:scale-95 text-white font-bold py-3.5 px-5 rounded-2xl transition-all shadow-lg shadow-sky-200 text-sm">
+                I Drank Water (+250ml)
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Gemini API Configuration
+        const GEMINI_API_KEY = ""; 
+        const MODEL_TEXT = "gemini-3-flash-preview";
+        const MODEL_TTS = "gemini-2.5-flash-preview-tts";
+        const MODEL_IMAGE = "gemini-3.1-flash-lite-image";
+
+        // Sample Drink SVG base64 placeholders for Vision Testing
+        const SAMPLE_IMAGES = {
+            water: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23e0f2fe'/><path d='M35 25 L65 25 L60 85 L40 85 Z' fill='%23ffffff' stroke='%2338bdf8' stroke-width='2'/><path d='M37 40 L63 40 L60 83 L40 83 Z' fill='%2338bdf8' opacity='0.7'/><circle cx='50' cy='55' r='3' fill='%23ffffff'/></svg>",
+            coffee: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23fef3c7'/><path d='M35 25 L65 25 L60 85 L40 85 Z' fill='%23ffffff' stroke='%23d97706' stroke-width='2'/><path d='M37 35 L63 35 L60 83 L40 83 Z' fill='%2378350f'/><circle cx='50' cy='30' r='8' fill='%23fef3c7' opacity='0.8'/></svg>",
+            smoothie: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23dcfce7'/><path d='M35 25 L65 25 L60 85 L40 85 Z' fill='%23ffffff' stroke='%2316a34a' stroke-width='2'/><path d='M37 32 L63 32 L60 83 L40 83 Z' fill='%2322c55e'/><line x1='50' y1='10' x2='50' y2='80' stroke='%23ef4444' stroke-width='3'/></svg>",
+            sports: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23ffedd5'/><path d='M38 20 L62 20 L58 85 L42 85 Z' fill='%23ffffff' stroke='%23f97316' stroke-width='2'/><path d='M39 30 L61 30 L58 83 L42 83 Z' fill='%23f97316'/><polygon points='50,40 45,55 52,55 48,70 56,50 49,50' fill='%23fef08a'/></svg>"
+        };
+
+        // Fallback Hydration Facts
+        const HYDRATION_FACTS = [
+            "Drinking water boosts brain function! Dehydration by just 2% can impair attention, memory, and reaction times.",
+            "Water cushions your joints and spinal cord. Staying hydrated keeps your body flexible and reduces stiffness.",
+            "Feeling afternoon fatigue? A cold glass of water increases metabolic activity and boosts alertness faster than coffee.",
+            "Water assists kidney function by flushing out waste products. Regular hourly sips prevent kidney stress.",
+            "Drinking water before meals aids digestion and helps maintain healthy metabolism throughout the day."
+        ];
+
+        let timerDuration = 60 * 60; // Default 1 hour
+        let remainingSeconds = timerDuration;
+        let isRunning = false;
+        let timerInterval = null;
+        let expectedEndTime = null;
+        let soundEnabled = true;
+        let dailyIntakeMl = parseInt(localStorage.getItem('hydro_daily_ml') || '0', 10);
+        let dailyGoalMl = parseInt(localStorage.getItem('hydro_daily_goal') || '2000', 10);
+        let lastAnalyzedNetMl = 0;
+        let currentAudioPlayer = null;
+        let selectedBase64Image = null;
+        let chatHistory = []; // Stores multi-turn conversation for HydroBot
+
+        // Audio Context
+        let audioCtx = null;
+
+        // DOM Elements
+        const timerDisplay = document.getElementById('timerDisplay');
+        const timerProgressCircle = document.getElementById('timerProgressCircle');
+        const timerRingContainer = document.getElementById('timerRingContainer');
+        const timerStatusBadge = document.getElementById('timerStatusBadge');
+
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const soundToggleBtn = document.getElementById('soundToggleBtn');
+        const soundLabel = document.getElementById('soundLabel');
+        const soundIcon = document.getElementById('soundIcon');
+
+        const dailyProgressText = document.getElementById('dailyProgressText');
+        const dailyProgressBar = document.getElementById('dailyProgressBar');
+        const addGlassBtn = document.getElementById('addGlassBtn');
+        const addCustomBtn = document.getElementById('addCustomBtn');
+        const resetDailyBtn = document.getElementById('resetDailyBtn');
+
+        const mascotSpeech = document.getElementById('mascotSpeech');
+        const mascotLevelText = document.getElementById('mascotLevelText');
+        const mascotImage = document.getElementById('mascotImage');
+        const mascotSpinner = document.getElementById('mascotSpinner');
+        const genMascotBtn = document.getElementById('genMascotBtn');
+
+        const factText = document.getElementById('factText');
+        const refreshFactBtn = document.getElementById('refreshFactBtn');
+        const speakFactBtn = document.getElementById('speakFactBtn');
+        const refreshIcon = document.getElementById('refreshIcon');
+        const voicePersonaSelect = document.getElementById('voicePersonaSelect');
+
+        const beverageInput = document.getElementById('beverageInput');
+        const analyzeVisionBtn = document.getElementById('analyzeVisionBtn');
+        const visionResult = document.getElementById('visionResult');
+        const logDrinkNetBtn = document.getElementById('logDrinkNetBtn');
+        const imageFileInput = document.getElementById('imageFileInput');
+        const uploadTriggerBtn = document.getElementById('uploadTriggerBtn');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        const imagePreview = document.getElementById('imagePreview');
+
+        const planWeightInput = document.getElementById('planWeightInput');
+        const planWakeInput = document.getElementById('planWakeInput');
+        const planGoalSelect = document.getElementById('planGoalSelect');
+        const planActivitySelect = document.getElementById('planActivitySelect');
+        const generatePlanBtn = document.getElementById('generatePlanBtn');
+        const planResultContainer = document.getElementById('planResultContainer');
+
+        const chatHistoryBox = document.getElementById('chatHistoryBox');
+        const chatInput = document.getElementById('chatInput');
+        const sendChatBtn = document.getElementById('sendChatBtn');
+
+        const cityInput = document.getElementById('cityInput');
+        const activitySelect = document.getElementById('activitySelect');
+        const calcGoalBtn = document.getElementById('calcGoalBtn');
+        const climateGoalResult = document.getElementById('climateGoalResult');
+
+        const notificationModal = document.getElementById('notificationModal');
+        const modalContent = document.getElementById('modalContent');
+        const modalMotivationText = document.getElementById('modalMotivationText');
+        const modalVoiceBtn = document.getElementById('modalVoiceBtn');
+        const confirmDrinkBtn = document.getElementById('confirmDrinkBtn');
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function updateTimerDisplay() {
+            timerDisplay.textContent = formatTime(remainingSeconds);
+            const totalDash = 326.72;
+            const offset = totalDash - (remainingSeconds / timerDuration) * totalDash;
+            timerProgressCircle.style.strokeDashoffset = offset;
+        }
+
+        function startTimer() {
+            if (remainingSeconds <= 0) remainingSeconds = timerDuration;
+            isRunning = true;
+            
+            startBtn.innerHTML = `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg> Pause`;
+            startBtn.classList.replace('bg-sky-500', 'bg-amber-500');
+            startBtn.classList.replace('shadow-sky-200', 'shadow-amber-200');
+
+            timerStatusBadge.textContent = "Counting down";
+            timerStatusBadge.className = "text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100";
+            timerRingContainer.classList.add('active-timer-glow');
+
+            expectedEndTime = Date.now() + (remainingSeconds * 1000);
+
+            timerInterval = setInterval(() => {
+                const now = Date.now();
+                remainingSeconds = Math.max(0, Math.round((expectedEndTime - now) / 1000));
+
+                if (remainingSeconds <= 0) {
+                    updateTimerDisplay();
+                    onTimerComplete();
+                } else {
+                    updateTimerDisplay();
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            isRunning = false;
+            clearInterval(timerInterval);
+            startBtn.innerHTML = `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Resume`;
+            startBtn.classList.replace('bg-amber-500', 'bg-sky-500');
+            startBtn.classList.replace('shadow-amber-200', 'shadow-sky-200');
+
+            timerStatusBadge.textContent = "Paused";
+            timerStatusBadge.className = "text-xs font-semibold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100";
+            timerRingContainer.classList.remove('active-timer-glow');
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            remainingSeconds = timerDuration;
+            startBtn.innerHTML = `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Start Timer`;
+            timerStatusBadge.textContent = "Ready";
+            timerStatusBadge.className = "text-xs font-semibold text-sky-600 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-100";
+            updateTimerDisplay();
+        }
+
+        function onTimerComplete() {
+            pauseTimer();
+            remainingSeconds = timerDuration;
+            updateTimerDisplay();
+
+            if (soundEnabled) {
+                playChimeSound();
+            }
+
+            showModal();
+        }
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContextClass();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playChimeSound() {
+            try {
+                initAudio();
+                const now = audioCtx.currentTime;
+                
+                const playTone = (freq, start, duration) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, start);
+                    gain.gain.setValueAtTime(0, start);
+                    gain.gain.linearRampToValueAtTime(0.3, start + 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(start);
+                    osc.stop(start + duration);
+                };
+
+                playTone(523.25, now, 0.4);       // C5
+                playTone(659.25, now + 0.15, 0.5); // E5
+                playTone(783.99, now + 0.30, 0.7); // G5
+            } catch (e) {
+                console.log("Audio play blocked");
+            }
+        }
+
+        function updateDailyProgress() {
+            const glasses = Math.floor(dailyIntakeMl / 250);
+            const percent = Math.min(100, Math.round((dailyIntakeMl / dailyGoalMl) * 100));
+            dailyProgressText.textContent = `${dailyIntakeMl} / ${dailyGoalMl} ml (${glasses} glasses)`;
+            dailyProgressBar.style.width = `${percent}%`;
+            localStorage.setItem('hydro_daily_ml', dailyIntakeMl.toString());
+
+            if (percent >= 100) {
+                mascotLevelText.textContent = "Level MAX Champion!";
+                mascotSpeech.textContent = "🎉 Amazing! You've reached 100% of your daily hydration goal!";
+            } else if (percent >= 50) {
+                mascotLevelText.textContent = "Level 2 Enthusiast";
+                mascotSpeech.textContent = "You're over halfway there! Keep taking regular sips!";
+            } else {
+                mascotLevelText.textContent = "Level 1 Hydro Drop";
+                mascotSpeech.textContent = "Stay hydrated! Every sip brings us closer to our goal!";
+            }
+        }
+
+        function showModal() {
+            notificationModal.classList.remove('hidden');
+            setTimeout(() => {
+                modalContent.classList.remove('opacity-0', 'scale-95');
+                modalContent.classList.add('opacity-100', 'scale-100');
+            }, 10);
+        }
+
+        function hideModal() {
+            modalContent.classList.remove('opacity-100', 'scale-100');
+            modalContent.classList.add('opacity-0', 'scale-95');
+            setTimeout(() => {
+                notificationModal.classList.add('hidden');
+            }, 300);
+        }
+
+        function base64ToArrayBuffer(base64) {
+            const binaryString = window.atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        function pcmToWav(pcm16Data, sampleRate) {
+            const buffer = new ArrayBuffer(44 + pcm16Data.length * 2);
+            const view = new DataView(buffer);
+
+            const writeString = (v, offset, str) => {
+                for (let i = 0; i < str.length; i++) v.setUint8(offset + i, str.charCodeAt(i));
+            };
+
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + pcm16Data.length * 2, true);
+            writeString(view, 8, 'WAVE');
+
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true); // PCM format
+            view.setUint16(22, 1, true); // Mono
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+
+            writeString(view, 36, 'data');
+            view.setUint32(40, pcm16Data.length * 2, true);
+
+            let offset = 44;
+            for (let i = 0; i < pcm16Data.length; i++) {
+                view.setInt16(offset, pcm16Data[i], true);
+                offset += 2;
+            }
+
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        async function speakWithGemini(textToSpeak, btnToAnimate = null) {
+            if (currentAudioPlayer) {
+                currentAudioPlayer.pause();
+                currentAudioPlayer = null;
+            }
+
+            const [voiceName, personaName] = voicePersonaSelect.value.split(':');
+            const promptText = `Say in a ${personaName} voice: ${textToSpeak}`;
+
+            let originalBtnText = "";
+            if (btnToAnimate) {
+                originalBtnText = btnToAnimate.innerHTML;
+                btnToAnimate.innerHTML = `🔊 Generating Voice...`;
+                btnToAnimate.disabled = true;
+            }
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_TTS}:generateContent?key=${GEMINI_API_KEY}`;
+                const payload = {
+                    contents: [{ parts: [{ text: promptText }] }],
+                    generationConfig: {
+                        responseModalities: ["AUDIO"],
+                        speechConfig: {
+                            voiceConfig: {
+                                prebuiltVoiceConfig: { voiceName: voiceName }
+                            }
+                        }
+                    }
+                };
+
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                const part = data?.candidates?.[0]?.content?.parts?.[0];
+                const base64Audio = part?.inlineData?.data;
+                const mimeType = part?.inlineData?.mimeType || "";
+
+                if (base64Audio) {
+                    const sampleRate = parseInt(mimeType.match(/rate=(\d+)/)?.[1] || "24000", 10);
+                    const arrayBuffer = base64ToArrayBuffer(base64Audio);
+                    const pcm16 = new Int16Array(arrayBuffer);
+                    const wavBlob = pcmToWav(pcm16, sampleRate);
+                    const audioUrl = URL.createObjectURL(wavBlob);
+
+                    currentAudioPlayer = new Audio(audioUrl);
+                    currentAudioPlayer.play();
+                } else {
+                    throw new Error("No speech audio returned");
+                }
+            } catch (e) {
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+                    window.speechSynthesis.speak(utterance);
+                }
+            } finally {
+                if (btnToAnimate) {
+                    btnToAnimate.innerHTML = originalBtnText;
+                    btnToAnimate.disabled = false;
+                }
+            }
+        }
+
+        async function analyzeVisionBeverage() {
+            const query = beverageInput.value.trim();
+
+            if (!selectedBase64Image && !query) {
+                visionResult.innerHTML = `<span class="text-rose-500 font-semibold block text-center">Please select a drink photo or type a drink name!</span>`;
+                return;
+            }
+
+            visionResult.innerHTML = `<span class="animate-pulse text-sky-600 font-semibold text-center block">🔍 Gemini Vision analyzing beverage composition...</span>`;
+            logDrinkNetBtn.classList.add('hidden');
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_TEXT}:generateContent?key=${GEMINI_API_KEY}`;
+                
+                const parts = [];
+                if (query) {
+                    parts.push({ text: `Analyze the beverage "${query}" for net fluid hydration value. Return JSON.` });
+                } else {
+                    parts.push({ text: `Analyze this drink image. Identify drink type, estimated fluid volume in ml, sugar, caffeine, net hydration value in ml, and hydration advice. Return JSON.` });
+                }
+
+                if (selectedBase64Image) {
+                    const cleanBase64 = selectedBase64Image.split(',')[1] || selectedBase64Image;
+                    const mimeType = selectedBase64Image.split(';')[0].split(':')[1] || 'image/png';
+                    parts.push({
+                        inlineData: {
+                            mimeType: mimeType,
+                            data: cleanBase64
+                        }
+                    });
+                }
+
+                const payload = {
+                    contents: [{ parts: parts }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                beverageName: { type: "STRING" },
+                                netHydrationMl: { type: "NUMBER" },
+                                hydrationRating: { type: "STRING" },
+                                caffeineMg: { type: "NUMBER" },
+                                sugarGrams: { type: "NUMBER" },
+                                aiAdvice: { type: "STRING" }
+                            },
+                            propertyOrdering: ["beverageName", "netHydrationMl", "hydrationRating", "caffeineMg", "sugarGrams", "aiAdvice"]
+                        }
+                    }
+                };
+
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                const jsonText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (jsonText) {
+                    const info = JSON.parse(jsonText);
+                    lastAnalyzedNetMl = Math.round(info.netHydrationMl || 200);
+
+                    const isPositive = lastAnalyzedNetMl >= 0;
+                    visionResult.innerHTML = `
+                        <div class="space-y-1.5">
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-slate-800 text-xs">${info.beverageName || query || 'Scanned Drink'}</span>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isPositive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                                    ${info.hydrationRating || 'Hydrating'}
+                                </span>
+                            </div>
+                            <p class="text-[11px] text-slate-600">${info.aiAdvice}</p>
+                            <div class="flex justify-between text-[10px] text-slate-500 pt-1.5 border-t border-slate-200">
+                                <span>⚡ Caffeine: ~${info.caffeineMg || 0}mg</span>
+                                <span>🍬 Sugar: ~${info.sugarGrams || 0}g</span>
+                                <span class="font-bold ${isPositive ? 'text-emerald-600' : 'text-rose-600'}">Net: ${lastAnalyzedNetMl >= 0 ? '+' : ''}${lastAnalyzedNetMl} ml</span>
+                            </div>
+                        </div>
+                    `;
+                    logDrinkNetBtn.classList.remove('hidden');
+                    logDrinkNetBtn.textContent = `➕ Log ${lastAnalyzedNetMl >= 0 ? '+' : ''}${lastAnalyzedNetMl}ml to Daily Goal`;
+                } else {
+                    throw new Error("No structured output");
+                }
+            } catch (e) {
+                visionResult.innerHTML = `<span class="text-slate-700 font-medium">💧 <b>Analyzed Drink</b> contributes positively to fluid intake! Balance caffeinated drinks with plain water.</span>`;
+            }
+        }
+
+        async function generateHydrationPlan() {
+            const weight = planWeightInput.value || 70;
+            const wake = planWakeInput.value || "07:00";
+            const goal = planGoalSelect.value;
+            const activity = planActivitySelect.value;
+
+            planResultContainer.innerHTML = `<span class="animate-pulse text-sky-600 font-semibold text-center block py-4">✨ Gemini structured plan generator calculating your hourly timeline...</span>`;
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_TEXT}:generateContent?key=${GEMINI_API_KEY}`;
+                const prompt = `Create a daily hydration schedule for a person weighing ${weight}kg, waking at ${wake}, with goal: ${goal} and activity level: ${activity}. Return JSON containing total Daily Target in ml, key tip, and a 5-item hourly timeline schedule.`;
+
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                totalDailyMl: { type: "NUMBER" },
+                                overallTip: { type: "STRING" },
+                                schedule: {
+                                    type: "ARRAY",
+                                    items: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            time: { type: "STRING" },
+                                            amountMl: { type: "NUMBER" },
+                                            drinkType: { type: "STRING" },
+                                            purpose: { type: "STRING" }
+                                        },
+                                        propertyOrdering: ["time", "amountMl", "drinkType", "purpose"]
+                                    }
+                                }
+                            },
+                            propertyOrdering: ["totalDailyMl", "overallTip", "schedule"]
+                        }
+                    }
+                };
+
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                const jsonText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (jsonText) {
+                    const plan = JSON.parse(jsonText);
+                    
+                    if (plan.totalDailyMl) {
+                        dailyGoalMl = plan.totalDailyMl;
+                        localStorage.setItem('hydro_daily_goal', dailyGoalMl.toString());
+                        updateDailyProgress();
+                    }
+
+                    let scheduleHtml = `
+                        <div class="mb-2 pb-2 border-b border-slate-200 flex justify-between items-center">
+                            <span class="font-bold text-sky-700">Target: ${plan.totalDailyMl || 2500} ml/day</span>
+                            <span class="text-[10px] bg-sky-100 text-sky-800 px-2 py-0.5 rounded-full font-bold">Goal Applied!</span>
+                        </div>
+                        <p class="text-[11px] text-slate-600 mb-3 italic">${plan.overallTip}</p>
+                        <div class="space-y-2">
+                    `;
+
+                    (plan.schedule || []).forEach(item => {
+                        scheduleHtml += `
+                            <div class="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between shadow-2xs">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-sky-600 bg-sky-50 px-2 py-1 rounded-lg text-[10px]">${item.time}</span>
+                                    <div>
+                                        <p class="font-bold text-slate-800 text-[11px]">${item.drinkType} (${item.amountMl}ml)</p>
+                                        <p class="text-[10px] text-slate-500">${item.purpose}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    scheduleHtml += `</div>`;
+                    planResultContainer.innerHTML = scheduleHtml;
+                } else {
+                    throw new Error("Plan generation failed");
+                }
+            } catch (e) {
+                planResultContainer.innerHTML = `<span class="text-slate-600 text-center block">Recommended intake: <b>2500 ml</b>. Sip 250ml every 1-2 hours for steady hydration.</span>`;
+            }
+        }
+
+        async function sendChatMessage(userText) {
+            if (!userText.trim()) return;
+
+            // Append user bubble
+            const userBubble = document.createElement('div');
+            userBubble.className = "flex items-start justify-end gap-2";
+            userBubble.innerHTML = `
+                <div class="bg-sky-500 text-white p-2.5 rounded-2xl max-w-[85%] text-xs shadow-xs">
+                    ${userText}
+                </div>
+            `;
+            chatHistoryBox.appendChild(userBubble);
+            chatInput.value = "";
+            chatHistoryBox.scrollTop = chatHistoryBox.scrollHeight;
+
+            // Loading bubble
+            const loadingBubble = document.createElement('div');
+            loadingBubble.className = "flex items-start gap-2 loading-msg";
+            loadingBubble.innerHTML = `
+                <div class="w-6 h-6 rounded-full bg-sky-500 text-white flex items-center justify-center font-bold text-[10px] shrink-0">AI</div>
+                <div class="bg-white border border-slate-200 p-2.5 rounded-2xl text-slate-500 text-xs shadow-xs animate-pulse">
+                    HydroBot thinking...
+                </div>
+            `;
+            chatHistoryBox.appendChild(loadingBubble);
+            chatHistoryBox.scrollTop = chatHistoryBox.scrollHeight;
+
+            // Push to chat history array
+            chatHistory.push({ role: "user", parts: [{ text: userText }] });
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_TEXT}:generateContent?key=${GEMINI_API_KEY}`;
+                const payload = {
+                    contents: chatHistory,
+                    systemInstruction: {
+                        parts: [{ text: "You are HydroBot, a friendly, witty, and supportive AI hydration & health coach. Give clear, short, energetic responses about water intake, electrolytes, and wellness." }]
+                    }
+                };
+
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                const aiReply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                // Remove loading
+                loadingBubble.remove();
+
+                if (aiReply) {
+                    chatHistory.push({ role: "model", parts: [{ text: aiReply }] });
+
+                    const botBubble = document.createElement('div');
+                    botBubble.className = "flex items-start gap-2";
+                    botBubble.innerHTML = `
+                        <div class="w-6 h-6 rounded-full bg-sky-500 text-white flex items-center justify-center font-bold text-[10px] shrink-0">AI</div>
+                        <div class="bg-white border border-slate-200 p-2.5 rounded-2xl text-slate-700 text-xs shadow-xs max-w-[85%] leading-relaxed">
+                            ${aiReply}
+                        </div>
+                    `;
+                    chatHistoryBox.appendChild(botBubble);
+                } else {
+                    throw new Error("No response");
+                }
+            } catch (e) {
+                loadingBubble.remove();
+                const errBubble = document.createElement('div');
+                errBubble.className = "flex items-start gap-2";
+                errBubble.innerHTML = `
+                    <div class="w-6 h-6 rounded-full bg-sky-500 text-white flex items-center justify-center font-bold text-[10px] shrink-0">AI</div>
+                    <div class="bg-rose-50 border border-rose-200 p-2.5 rounded-2xl text-rose-700 text-xs shadow-xs">
+                        Oops! Hydration thoughts crossed paths. Try asking again! 💧
+                    </div>
+                `;
+                chatHistoryBox.appendChild(errBubble);
+            }
+            chatHistoryBox.scrollTop = chatHistoryBox.scrollHeight;
+        }
+
+        async function fetchGeminiFact() {
+            refreshIcon.classList.add('animate-spin');
+            factText.innerHTML = `<span class="animate-pulse text-sky-600 font-semibold">Gemini AI generating fresh hydration fact...</span>`;
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_TEXT}:generateContent?key=${GEMINI_API_KEY}`;
+                const payload = {
+                    contents: [{ parts: [{ text: "Give me 1 surprising, engaging 1-sentence science fact about hydration or drinking water. Keep it clear, friendly, and short." }] }]
+                };
+
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                const fact = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+                if (fact) {
+                    factText.textContent = fact;
+                } else {
+                    throw new Error("Empty response");
+                }
+            } catch (e) {
+                const randomFact = HYDRATION_FACTS[Math.floor(Math.random() * HYDRATION_FACTS.length)];
+                factText.textContent = randomFact;
+            } finally {
+                setTimeout(() => refreshIcon.classList.remove('animate-spin'), 300);
+            }
+        }
+
+        async function calculateClimateGoal() {
+            const city = cityInput.value.trim();
+            const activity = activitySelect.value;
+            if (!city) return;
+
+            climateGoalResult.innerHTML = `<span class="animate-pulse text-sky-600 font-semibold text-center block">Searching climate guidelines for ${city}...</span>`;
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_TEXT}:generateContent?key=${GEMINI_API_KEY}`;
+                const payload = {
+                    contents: [{ parts: [{ text: `Search local climate weather conditions for ${city} and calculate recommended daily water intake target in ml for someone doing ${activity}. Return a clear recommended target number in ml (e.g. 2750ml) and a 1-sentence weather explanation.` }] }],
+                    tools: [{ "google_search": {} }]
+                };
+
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (text) {
+                    const match = text.match(/(\d{4})\s*ml/i);
+                    if (match && match[1]) {
+                        const newGoal = parseInt(match[1], 10);
+                        dailyGoalMl = newGoal;
+                        localStorage.setItem('hydro_daily_goal', dailyGoalMl.toString());
+                        updateDailyProgress();
+                    }
+
+                    climateGoalResult.innerHTML = `
+                        <div class="space-y-1">
+                            <span class="font-bold text-sky-700 block">Target Updated: ${dailyGoalMl} ml / day</span>
+                            <p class="text-[11px] text-slate-600 leading-relaxed">${text.substring(0, 180)}...</p>
+                        </div>
+                    `;
+                } else {
+                    throw new Error("Empty search output");
+                }
+            } catch (e) {
+                climateGoalResult.innerHTML = `<span class="text-slate-700">Recommended target for active warm climate: <b>2500 - 3000 ml / day</b>.</span>`;
+            }
+        }
+
+        async function generateMascot() {
+            mascotSpinner.classList.remove('hidden');
+            const mascotStyles = ["Cute Anime Water Drop", "Cyberpunk Hydration Bot", "Zen Water Lotus Dragon", "3D Pixel Art Hydration Companion"];
+            const randomStyle = mascotStyles[Math.floor(Math.random() * mascotStyles.length)];
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_IMAGE}:generateContent?key=${GEMINI_API_KEY}`;
+                const payload = {
+                    contents: [{ parts: [{ text: `A vibrant mascot character representing water hydration, ${randomStyle} style, high quality avatar, 3d render, clean background, friendly avatar` }] }],
+                    generationConfig: {
+                        responseModalities: ['TEXT', 'IMAGE']
+                    }
+                };
+
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                const base64Image = data?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+
+                if (base64Image) {
+                    mascotImage.src = `data:image/png;base64,${base64Image}`;
+                    mascotSpeech.textContent = `"New style unlocked: ${randomStyle}! Looking hydrated!"`;
+                } else {
+                    throw new Error("No image data");
+                }
+            } catch (e) {
+                mascotSpeech.textContent = `"Style refreshed: ${randomStyle}! Keep sipping water!"`;
+            } finally {
+                mascotSpinner.classList.add('hidden');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateTimerDisplay();
+            updateDailyProgress();
+            fetchGeminiFact();
+
+            // Start / Pause Timer
+            startBtn.addEventListener('click', () => {
+                initAudio();
+                if (isRunning) {
+                    pauseTimer();
+                } else {
+                    startTimer();
+                }
+            });
+
+            // Reset Timer
+            resetBtn.addEventListener('click', resetTimer);
+
+            // Presets
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.preset-btn').forEach(b => {
+                        b.className = 'preset-btn bg-slate-100 hover:bg-sky-50 hover:text-sky-600 text-slate-600 text-xs font-bold py-2.5 rounded-xl transition-all';
+                    });
+                    e.currentTarget.className = 'preset-btn bg-sky-500 text-white text-xs font-bold py-2.5 rounded-xl transition-all shadow-md shadow-sky-200';
+
+                    const mins = parseInt(e.currentTarget.dataset.minutes, 10);
+                    timerDuration = mins * 60;
+                    resetTimer();
+                });
+            });
+
+            // Sound Toggle
+            soundToggleBtn.addEventListener('click', () => {
+                soundEnabled = !soundEnabled;
+                soundLabel.textContent = soundEnabled ? 'Sound On' : 'Muted';
+                soundIcon.classList.toggle('text-slate-400', !soundEnabled);
+            });
+
+            // Daily Intake Buttons
+            addGlassBtn.addEventListener('click', () => {
+                dailyIntakeMl += 250;
+                updateDailyProgress();
+            });
+
+            addCustomBtn.addEventListener('click', () => {
+                const amount = prompt("Enter water drank in ml:", "300");
+                if (amount && !isNaN(amount)) {
+                    dailyIntakeMl += parseInt(amount, 10);
+                    updateDailyProgress();
+                }
+            });
+
+            resetDailyBtn.addEventListener('click', () => {
+                if (confirm("Reset daily intake counter?")) {
+                    dailyIntakeMl = 0;
+                    updateDailyProgress();
+                }
+            });
+
+            // Tab Switching Logic
+            const tabScanBtn = document.getElementById('tabScanBtn');
+            const tabPlanBtn = document.getElementById('tabPlanBtn');
+            const tabChatBtn = document.getElementById('tabChatBtn');
+            const tabFactBtn = document.getElementById('tabFactBtn');
+            const tabGoalBtn = document.getElementById('tabGoalBtn');
+
+            const tabScanContent = document.getElementById('tabScanContent');
+            const tabPlanContent = document.getElementById('tabPlanContent');
+            const tabChatContent = document.getElementById('tabChatContent');
+            const tabFactContent = document.getElementById('tabFactContent');
+            const tabGoalContent = document.getElementById('tabGoalContent');
+
+            const tabs = [
+                { btn: tabScanBtn, content: tabScanContent },
+                { btn: tabPlanBtn, content: tabPlanContent },
+                { btn: tabChatBtn, content: tabChatContent },
+                { btn: tabFactBtn, content: tabFactContent },
+                { btn: tabGoalBtn, content: tabGoalContent }
+            ];
+
+            tabs.forEach(({ btn, content }) => {
+                btn.addEventListener('click', () => {
+                    tabs.forEach(t => {
+                        t.btn.className = 'tab-btn text-slate-500 hover:text-sky-600 flex-1 py-2 px-1.5 rounded-2xl text-[11px] sm:text-xs font-bold transition-all text-center';
+                        t.content.classList.add('hidden');
+                    });
+                    btn.className = 'tab-btn tab-active flex-1 py-2 px-1.5 rounded-2xl text-[11px] sm:text-xs font-bold transition-all text-center';
+                    content.classList.remove('hidden');
+                });
+            });
+
+            // Vision Sample buttons
+            document.querySelectorAll('.sample-img-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const sampleType = e.currentTarget.dataset.sample;
+                    selectedBase64Image = SAMPLE_IMAGES[sampleType];
+                    imagePreview.src = selectedBase64Image;
+                    imagePreviewContainer.classList.remove('hidden');
+                });
+            });
+
+            // File Upload trigger
+            uploadTriggerBtn.addEventListener('click', () => imageFileInput.click());
+            imageFileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        selectedBase64Image = event.target.result;
+                        imagePreview.src = selectedBase64Image;
+                        imagePreviewContainer.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // Vision Analyze Click
+            analyzeVisionBtn.addEventListener('click', analyzeVisionBeverage);
+            beverageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') analyzeVisionBeverage(); });
+            logDrinkNetBtn.addEventListener('click', () => {
+                dailyIntakeMl = Math.max(0, dailyIntakeMl + lastAnalyzedNetMl);
+                updateDailyProgress();
+                logDrinkNetBtn.textContent = "✓ Logged to Goal!";
+                setTimeout(() => logDrinkNetBtn.classList.add('hidden'), 1500);
+            });
+
+            // Schedule Plan Generator
+            generatePlanBtn.addEventListener('click', generateHydrationPlan);
+
+            // Chat Assistant Actions
+            sendChatBtn.addEventListener('click', () => sendChatMessage(chatInput.value));
+            chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChatMessage(chatInput.value); });
+            document.querySelectorAll('.chat-chip').forEach(chip => {
+                chip.addEventListener('click', (e) => sendChatMessage(e.target.textContent));
+            });
+
+            // Voice Coach Actions
+            refreshFactBtn.addEventListener('click', fetchGeminiFact);
+            speakFactBtn.addEventListener('click', () => speakWithGemini(factText.textContent, speakFactBtn));
+
+            // Climate Goal Search
+            calcGoalBtn.addEventListener('click', calculateClimateGoal);
+
+            // Mascot Avatar Generator
+            genMascotBtn.addEventListener('click', generateMascot);
+
+            // Modal Confirmation & Voice Motivation
+            confirmDrinkBtn.addEventListener('click', () => {
+                dailyIntakeMl += 250;
+                updateDailyProgress();
+                hideModal();
+                startTimer();
+            });
+
+            modalVoiceBtn.addEventListener('click', () => {
+                speakWithGemini(modalMotivationText.textContent, modalVoiceBtn);
+            });
+        });
+    </script>
+</body>
+</html>
