@@ -2,7 +2,7 @@
 
 A comprehensive hydration tracking app featuring smart reminders, an AI-powered consultation chatbot, and detailed drink logging to help you understand the health impacts of what you drink.
 
-##✨ Features
+## ✨ Features
 
 🔔 Hydration Reminders: Customizable notifications to remind you to drink water throughout the day.
 
