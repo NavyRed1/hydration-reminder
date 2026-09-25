@@ -1,8 +1,8 @@
-HydroPal 💧
+# HydroPal 💧
 
 A comprehensive hydration tracking app featuring smart reminders, an AI-powered consultation chatbot, and detailed drink logging to help you understand the health impacts of what you drink.
 
-✨ Features
+##✨ Features
 
 🔔 Hydration Reminders: Customizable notifications to remind you to drink water throughout the day.
 
@@ -12,7 +12,7 @@ A comprehensive hydration tracking app featuring smart reminders, an AI-powered 
 
 📊 Health Impact Analysis: Gain insights into how different beverages affect your hydration levels, caloric intake, and overall health.
 
-🚀 Getting Started
+##🚀 Getting Started
 
 Prerequisites
 
@@ -46,7 +46,7 @@ Run the application:
 npm start
 
 
-🛠️ Tech Stack
+## 🛠️ Tech Stack
 
 Frontend: [React / React Native / Flutter / HTML-CSS-JS]
 
@@ -54,7 +54,7 @@ Backend / Database: [Node.js / Firebase / Express / Supabase]
 
 AI / Chatbot Integration: [OpenAI API / Gemini API / Custom Model]
 
-📖 Usage
+## 📖 Usage
 
 Set Up Profile: Input your daily hydration goals based on weight, activity level, or climate.
 
@@ -62,7 +62,7 @@ Track Beverages: Use the quick-add feature in the logbook to record each drink a
 
 Ask the Chatbot: Open the chat tab anytime you have questions about electrolyte balance, recommended intake, or beverage choices.
 
-🤝 Contributing
+## 🤝 Contributing
 
 Contributions are always welcome! Feel free to open an issue or submit a pull request if you have ideas for improvements or new features.
 
