@@ -12,7 +12,7 @@ A comprehensive hydration tracking app featuring smart reminders, an AI-powered 
 
 📊 Health Impact Analysis: Gain insights into how different beverages affect your hydration levels, caloric intake, and overall health.
 
-##🚀 Getting Started
+## 🚀 Getting Started
 
 Prerequisites
 
@@ -40,11 +40,9 @@ Create a .env file in the root directory and add your required keys (e.g., API k
 
 CHATBOT_API_KEY=your_api_key_here
 
-
 Run the application:
 
 npm start
-
 
 ## 🛠️ Tech Stack
 
