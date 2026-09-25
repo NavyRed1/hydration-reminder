@@ -73,7 +73,3 @@ Commit your Changes (git commit -m 'Add some AmazingFeature')
 Push to the Branch (git push origin feature/AmazingFeature)
 
 Open a Pull Request
-
-📄 License
-
-Distributed under the MIT License. See LICENSE for more information.
